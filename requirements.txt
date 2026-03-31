@@ -1,3 +1,2 @@
 flet
-flet-audio
 edge-tts
