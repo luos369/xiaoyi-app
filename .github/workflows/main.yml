@@ -37,7 +37,7 @@ jobs:
       - name: Accept Android Licenses
         run: yes | sdkmanager --licenses || true
 
-      # 🌟 关键修改：无拓展强制安装，并且不加 permissions 参数
+# 🌟 关键修改：加上 --yes 参数，自动同意安装环境，不再卡住等待真人输入！
       - name: Build APK
         env:
           AIOHTTP_NO_EXTENSIONS: 1
@@ -45,7 +45,7 @@ jobs:
           MULTIDICT_NO_EXTENSIONS: 1
           FROZENLIST_NO_EXTENSIONS: 1
         run: |
-          flet build apk --project xiaoyi_reader
+          flet build apk --project xiaoyi_reader --yes
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
