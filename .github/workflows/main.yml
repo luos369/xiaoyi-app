@@ -3,7 +3,6 @@ name: Build Flet APK
 on:
   workflow_dispatch:
 
-# 🌟 修复点：强制要求 GitHub 服务器使用最新的 Node.js 24 环境
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -31,8 +30,8 @@ jobs:
           pip install flet
           pip install -r requirements.txt
 
-      - name: 开始编译打包 APK (耗时约 5-10 分钟)
-        run: flet build apk
+      - name: 开始编译打包 APK (自动按Y确认下载)
+        run: yes | flet build apk
 
       - name: 收集编译好的安装包
         uses: actions/upload-artifact@v4
