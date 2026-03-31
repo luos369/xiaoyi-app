@@ -1,2 +1,6 @@
 flet
 edge-tts
+aiohttp --no-binary aiohttp
+yarl --no-binary yarl
+multidict --no-binary multidict
+frozenlist --no-binary frozenlist
