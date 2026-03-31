@@ -1,27 +1,31 @@
 import flet as ft
 import asyncio
-import edge_tts
 import os
-import json
-import re
 import time
 import tempfile
+import traceback
+
+# === 🌟 终极防白屏：捕获所有底层导包错误 ===
+startup_error = ""
+edge_tts = None
+try:
+    import edge_tts
+except Exception as e:
+    startup_error = traceback.format_exc()
+# ========================================
 
 # --- 配置区 ---
-# 自动识别系统缓存目录，增加严格的容错和判空机制
 def get_save_dir():
     try:
         base_dir = tempfile.gettempdir()
         path = os.path.join(base_dir, "xiaoyi_cache")
     except Exception:
-        # 如果获取系统临时目录失败，则存放在当前安全目录下
         path = os.path.join(os.getcwd(), "xiaoyi_cache")
         
     if not os.path.exists(path):
         try:
             os.makedirs(path, exist_ok=True)
         except Exception:
-            # 终极保底：如果无法新建文件夹，直接使用当前目录
             return os.getcwd()
     return path
 
@@ -43,6 +47,8 @@ SPEED_MAP = {
 
 # --- 核心逻辑 ---
 async def synthesize(text, filepath, speed, voice):
+    if not edge_tts:
+        return False
     tmp_filepath = filepath + ".tmp"
     if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
         return True
@@ -59,7 +65,17 @@ def main(page: ft.Page):
     page.title = "晓依听书"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
+    page.scroll = ft.ScrollMode.AUTO # 允许滚动查看长错误
     
+    # 🌟 如果启动报错，直接把黑匣子错误打印在屏幕上！不再白屏！
+    if startup_error:
+        page.add(
+            ft.Text("启动失败！捕获到底层错误：", color=ft.Colors.RED, weight="bold", size=20),
+            ft.Text(startup_error, selectable=True, size=12, color=ft.Colors.RED_700),
+            ft.Text("请把以上红字截图发出来，我们就能精准定位了！", size=14, color=ft.Colors.BLUE)
+        )
+        return
+
     # 初始化原生音频
     audio_player = ft.Audio(src="", autoplay=False)
     page.overlay.append(audio_player)
@@ -92,7 +108,6 @@ def main(page: ft.Page):
     play_btn = ft.IconButton(icon=ft.Icons.PLAY_CIRCLE_FILL, icon_size=60, icon_color=ft.Colors.BLUE)
 
     def update_ui():
-        # 更新文本滚动
         for i, ui_line in enumerate(ui_lines):
             offset = i - 3
             curr_idx = state["idx"] + offset
@@ -100,8 +115,6 @@ def main(page: ft.Page):
                 ui_line.value = book["paragraphs"][curr_idx]
             else:
                 ui_line.value = ""
-        
-        # 更新进度条和状态
         total = book["total"]
         status_text.value = f"进度: {state['idx'] + 1} / {total}"
         page.update()
@@ -112,7 +125,6 @@ def main(page: ft.Page):
             idx = state["idx"]
             f_path = os.path.join(SAVE_DIR, f"tts_{idx}_{current_session}.mp3")
             
-            # 等待文件缓存
             wait_count = 0
             while not os.path.exists(f_path):
                 if not state["is_playing"] or state["session_id"] != current_session: return
@@ -120,7 +132,7 @@ def main(page: ft.Page):
                 page.update()
                 await asyncio.sleep(0.5)
                 wait_count += 1
-                if wait_count > 20: break # 超时保护
+                if wait_count > 20: break 
             
             loading_ring.visible = False
             update_ui()
@@ -129,9 +141,7 @@ def main(page: ft.Page):
             audio_player.update()
             audio_player.play()
             
-            # 模拟等待播放结束（实际可监听 on_state_changed）
-            # 由于 edge-tts 的段落通常不长，我们这里用简单的逻辑
-            await asyncio.sleep(2) # 演示逻辑，建议配合 on_state_changed
+            await asyncio.sleep(2) 
             
             if state["is_playing"] and state["session_id"] == current_session:
                 state["idx"] += 1
@@ -161,7 +171,6 @@ def main(page: ft.Page):
 
     play_btn.on_click = handle_play
 
-    # 文件选择
     def on_result(e: ft.FilePickerResultEvent):
         if e.files:
             try:
@@ -180,7 +189,6 @@ def main(page: ft.Page):
     file_picker = ft.FilePicker(on_result=on_result)
     page.overlay.append(file_picker)
 
-    # 布局
     page.appbar = ft.AppBar(
         title=ft.Text("晓依听书"),
         actions=[
@@ -200,7 +208,6 @@ def main(page: ft.Page):
         ft.Container(height=20)
     )
 
-    # 启动后异步清理旧缓存，增加 try-except 容错防止崩溃
     async def clean_old_cache():
         await asyncio.sleep(2)
         if not os.path.exists(SAVE_DIR):
@@ -208,15 +215,12 @@ def main(page: ft.Page):
         try:
             for f in os.listdir(SAVE_DIR):
                 if f.endswith(".mp3") or f.endswith(".tmp"):
-                    try: 
-                        os.remove(os.path.join(SAVE_DIR, f))
-                    except: 
-                        pass
+                    try: os.remove(os.path.join(SAVE_DIR, f))
+                    except: pass
         except Exception:
-            pass # 屏蔽由于没有读写权限引发的异常崩溃
+            pass 
     
     page.run_task(clean_old_cache)
 
 if __name__ == "__main__":
-    # 注意：不要在 ft.app 之外做复杂的 OS 操作
     ft.app(target=main)
