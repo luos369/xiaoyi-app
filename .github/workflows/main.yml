@@ -7,7 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 🌟 关键修改：弃用 Ubuntu，改用 macOS 编译安卓，完美避开 Flet 的底层漏包 Bug！
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Code
@@ -32,12 +33,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          
-      # 🌟 关键步骤：自动接受安卓协议
+
       - name: Accept Android Licenses
         run: yes | sdkmanager --licenses || true
 
-# 🌟 注入环境变量，同时去掉导致报错的 --permissions 参数
+      # 🌟 关键修改：无拓展强制安装，并且不加 permissions 参数
       - name: Build APK
         env:
           AIOHTTP_NO_EXTENSIONS: 1
@@ -46,6 +46,7 @@ jobs:
           FROZENLIST_NO_EXTENSIONS: 1
         run: |
           flet build apk --project xiaoyi_reader
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
