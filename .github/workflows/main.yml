@@ -14,28 +14,33 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 设置 Java 环境
+      - name: 设置 Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 设置 Python 环境
+      - name: 设置 Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 安装依赖
+      - name: 暴力安装依赖
         run: |
           pip install --upgrade pip
-          pip install flet[all]
-          pip install -r requirements.txt
+          # 🌟 核心：先装全量版 flet，再装指定的音频包
+          pip install flet[all]==0.21.0
+          pip install flet-audio==0.21.0 edge-tts
 
-      - name: 开始打包
-        run: yes | flet build apk
+      - name: 彻底清除缓存并强制打包
+        # 🌟 核心修改：
+        # 1. --clean: 强制删除之前所有错误的编译残留
+        # 2. --include-packages: 再次点名强制包含音频包
+        run: |
+          yes | flet build apk --clean --include-packages flet_audio
 
-      - name: 收集 APK
+      - name: 发布 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Xiaoyi-Reader-App
+          name: Xiaoyi-Final-Fix
           path: build/apk/**/*.apk
