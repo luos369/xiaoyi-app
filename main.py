@@ -8,17 +8,21 @@ import time
 import tempfile
 
 # --- 配置区 ---
-# 自动识别系统缓存目录
+# 自动识别系统缓存目录，增加严格的容错和判空机制
 def get_save_dir():
-    # 安卓端 tempfile 可能受限，这里做一层保护
-    base_dir = tempfile.gettempdir()
-    path = os.path.join(base_dir, "xiaoyi_cache")
+    try:
+        base_dir = tempfile.gettempdir()
+        path = os.path.join(base_dir, "xiaoyi_cache")
+    except Exception:
+        # 如果获取系统临时目录失败，则存放在当前安全目录下
+        path = os.path.join(os.getcwd(), "xiaoyi_cache")
+        
     if not os.path.exists(path):
         try:
             os.makedirs(path, exist_ok=True)
-        except:
-            # 如果失败，回退到当前目录（仅作保底）
-            return "cache"
+        except Exception:
+            # 终极保底：如果无法新建文件夹，直接使用当前目录
+            return os.getcwd()
     return path
 
 SAVE_DIR = get_save_dir()
@@ -196,13 +200,20 @@ def main(page: ft.Page):
         ft.Container(height=20)
     )
 
-    # 启动后异步清理旧缓存，避免启动阻塞
+    # 启动后异步清理旧缓存，增加 try-except 容错防止崩溃
     async def clean_old_cache():
         await asyncio.sleep(2)
-        for f in os.listdir(SAVE_DIR):
-            if f.endswith(".mp3") or f.endswith(".tmp"):
-                try: os.remove(os.path.join(SAVE_DIR, f))
-                except: pass
+        if not os.path.exists(SAVE_DIR):
+            return
+        try:
+            for f in os.listdir(SAVE_DIR):
+                if f.endswith(".mp3") or f.endswith(".tmp"):
+                    try: 
+                        os.remove(os.path.join(SAVE_DIR, f))
+                    except: 
+                        pass
+        except Exception:
+            pass # 屏蔽由于没有读写权限引发的异常崩溃
     
     page.run_task(clean_old_cache)
 
